@@ -50,6 +50,11 @@ function parseProps(page, type) {
     estado:       p["Estado"]?.select?.name||"Pendiente",
     grupoId:      p["Grupo ID"]?.rich_text?.[0]?.plain_text||"",
     descOriginal: p["Descripción original"]?.rich_text?.[0]?.plain_text||"" };
+  if(type==="proyecto") return { notionId:id,
+    nombre: p["Proyecto / Cliente"]?.title?.[0]?.plain_text||"",
+    estado: p["Estado operativo"]?.select?.name||"",
+    etapa:  p["Etapa del Pipeline"]?.select?.name||"",
+  };
   if(type==="colaborador") return { notionId:id,
     nombre:       p["Colaborador"]?.title?.[0]?.plain_text||"",
     especialidad: (p["Rol"]?.multi_select?.[0]?.name) || (p["Area"]?.multi_select?.[0]?.name) || "",
@@ -91,6 +96,17 @@ exports.handler = async (event) => {
       // Filter activos for colaboradores
       if (body.type === "colaborador") {
         queryBody.filter = { property:"Estado", select:{ equals:"Activo" } };
+        queryBody.sorts = [{ property:"Colaborador", direction:"ascending" }];
+      }
+      // Filter proyectos activos (excluir Finalizado y En pausa)
+      if (body.type === "proyecto") {
+        queryBody.filter = {
+          and: [
+            { property:"Estado operativo", select:{ does_not_equal:"Finalizado" } },
+            { property:"Estado operativo", select:{ does_not_equal:"En pausa" } },
+          ]
+        };
+        queryBody.sorts = [{ property:"Proyecto / Cliente", direction:"ascending" }];
       }
       const d = await notionReq("POST", `/databases/${body.dbId}/query`, notionToken, queryBody);
       return { statusCode:200, headers:CORS, body:JSON.stringify((d.results||[]).map(p=>parseProps(p,body.type))) };
