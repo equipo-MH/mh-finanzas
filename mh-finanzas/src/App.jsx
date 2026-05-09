@@ -345,7 +345,7 @@ export default function App() {
   const [nav,       setNav]       = useState("home");
   const [entries,   setEntries]   = useState({compartido:[],mh:[],personal:[]});
   const [cfg,       setCfg]       = useState({ingresoMensual:0,metaAhorro:20});
-  const [loading,   setLoading]   = useState(true);
+  const [loading,   setLoading]   = useState(false);
   const [syncing,   setSyncing]   = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [err,       setErr]       = useState(null);
@@ -377,28 +377,31 @@ export default function App() {
   const loadAll = useCallback(async(silent=false)=>{
     const tok = getStoredToken();
     if(!tok) return;
-    if(silent) setSyncing(true);
-    else setLoading(true);
-    setErr(null);
-    try {
-      const [rP,rC,rM] = await Promise.all([
-        queryDB(DB_IDS.personal,   "personal",   tok),
-        queryDB(DB_IDS.compartido, "compartido", tok),
-        queryDB(DB_IDS.mh,         "mh",         tok),
-      ]);
-      const norm = (arr,bucket,subFn) => Array.isArray(arr)
-        ? arr.map(e=>({...e,bucket,sub:subFn(e),monto:Number(e.monto)||0,_pending:false}))
-        : [];
-      setEntries({
-        personal:   norm(rP,"personal",  ()=>"gasto"),
-        compartido: norm(rC,"compartido",e=>e.estado==="Saldado"?"ajuste":"gasto"),
-        mh:         norm(rM,"mh",        e=>(e.tipo||"").toLowerCase()==="ingreso"?"ingreso":"egreso"),
-      });
-      setLastSync(new Date());
-      const errs=[rP?.error,rC?.error,rM?.error].filter(Boolean).join(" · ");
-      if(errs) setErr(errs);
-    } catch(e){setErr(String(e));}
+    setSyncing(true);
+    // Show UI immediately — load sequentially so mobile doesn't time out
     setLoading(false);
+    setErr(null);
+    const norm = (arr,bucket,subFn) => Array.isArray(arr)
+      ? arr.map(e=>({...e,bucket,sub:subFn(e),monto:Number(e.monto)||0,_pending:false}))
+      : [];
+    const errs = [];
+    try {
+      const rP = await queryDB(DB_IDS.personal, "personal", tok);
+      if(rP?.error) errs.push("Personal: "+rP.error);
+      else setEntries(e=>({...e, personal: norm(rP,"personal",()=>"gasto")}));
+    } catch(e){ errs.push("Personal: "+String(e)); }
+    try {
+      const rC = await queryDB(DB_IDS.compartido, "compartido", tok);
+      if(rC?.error) errs.push("Compartido: "+rC.error);
+      else setEntries(e=>({...e, compartido: norm(rC,"compartido",x=>x.estado==="Saldado"?"ajuste":"gasto")}));
+    } catch(e){ errs.push("Compartido: "+String(e)); }
+    try {
+      const rM = await queryDB(DB_IDS.mh, "mh", tok);
+      if(rM?.error) errs.push("MH: "+rM.error);
+      else setEntries(e=>({...e, mh: norm(rM,"mh",x=>(x.tipo||"").toLowerCase()==="ingreso"?"ingreso":"egreso")}));
+    } catch(e){ errs.push("MH: "+String(e)); }
+    setLastSync(new Date());
+    if(errs.length) setErr(errs.join(" · "));
     setSyncing(false);
   },[]);
 
