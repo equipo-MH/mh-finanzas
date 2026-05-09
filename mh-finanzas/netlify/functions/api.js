@@ -51,10 +51,10 @@ function parseProps(page, type) {
     grupoId:      p["Grupo ID"]?.rich_text?.[0]?.plain_text||"",
     descOriginal: p["Descripción original"]?.rich_text?.[0]?.plain_text||"" };
   if(type==="colaborador") return { notionId:id,
-    nombre:       p["Nombre"]?.title?.[0]?.plain_text||"",
-    especialidad: p["Especialidad"]?.select?.name||"",
+    nombre:       p["Colaborador"]?.title?.[0]?.plain_text||"",
+    especialidad: (p["Rol"]?.multi_select?.[0]?.name) || (p["Area"]?.multi_select?.[0]?.name) || "",
     estado:       p["Estado"]?.select?.name||"Activo",
-    contacto:     p["Contacto"]?.rich_text?.[0]?.plain_text||"" };
+    contacto:     "" };
   if(type==="honorario") return { notionId:id,
     desc:           p["Descripción"]?.title?.[0]?.plain_text||"",
     colaborador:    p["Colaborador"]?.rich_text?.[0]?.plain_text||"",
