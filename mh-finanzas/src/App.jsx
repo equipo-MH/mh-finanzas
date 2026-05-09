@@ -7,7 +7,7 @@ const DB_IDS = {
   compartido:    "4a59e3a1c4034368b92e9cd6884b19ec",
   mh:            "2c0de50f21d6802fbc8ff6570cad8a26",
   cuotas:        "d5dfcfdd2b4b47d6acadf0cbe18da696",
-  colaboradores: "72c496113af24408b89c62b3d614aa4f",
+  colaboradores: "2c4de50f21d68080ae45d6b52cfed9ef",
   honorarios:    "2768b3bd16524154a127fedd7f00e22b",
   pagosColab:    "f784cf3598d34f1e9e687da984cbd4b8",
 };
@@ -150,10 +150,9 @@ function notionProps(bucket, data) {
     ...txt("Notas",data.notas||""),
   };
   if(bucket==="colaborador") return {
-    ...title("Nombre",data.nombre),
-    ...sel("Especialidad",data.especialidad||"Otro"),
+    ...title("Colaborador",data.nombre),
+    ...(data.especialidad?msel("Rol",data.especialidad):{...msel("Rol","Producción / Taller")}),
     ...sel("Estado","Activo"),
-    ...txt("Contacto",data.contacto||""),
   };
   return {};
 }
