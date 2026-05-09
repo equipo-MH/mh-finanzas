@@ -10,6 +10,7 @@ const DB_IDS = {
   colaboradores: "2c4de50f21d68080ae45d6b52cfed9ef",
   honorarios:    "2768b3bd16524154a127fedd7f00e22b",
   pagosColab:    "f784cf3598d34f1e9e687da984cbd4b8",
+  proyectos:     "2c0de50f21d6807b8e79000b866a9eda",
 };
 
 const NOTION_TOKEN_KEY    = "mh_notion_token";
@@ -379,7 +380,7 @@ const ChartTip = ({active,payload,label})=>{
 
 
 // ── Add Modal ─────────────────────────────────────────────
-function AddModal({showAdd,setShowAdd,form,setForm,formErr,setFormErr,handleAdd,saving,listening,voiceText,voiceParsing,startVoice,err,colaboradores}) {
+function AddModal({showAdd,setShowAdd,form,setForm,formErr,setFormErr,handleAdd,saving,listening,voiceText,voiceParsing,startVoice,err,colaboradores,proyectos}) {
 if(!showAdd) return null;
   const isCuotas = form.metodo==="Crédito";
   return (
@@ -477,6 +478,7 @@ export default function App() {
   const [colaboradores, setColaboradores] = useState([]);
   const [honorarios,  setHonorarios]  = useState([]);
   const [pagosColab,  setPagosColab]  = useState([]);
+  const [proyectos,   setProyectos]   = useState([]);
   const [cfg,         setCfg]         = useState({ingresoMensual:0,metaAhorro:20,cierreBBVA:""});
   const [loading,     setLoading]     = useState(false);
   const [syncing,     setSyncing]     = useState(false);
@@ -534,6 +536,8 @@ export default function App() {
       if(!r?.error&&Array.isArray(r)) setHonorarios(r.map(h=>({...h,montoPactado:Number(h.montoPactado)||0,totalAdelantado:Number(h.totalAdelantado)||0}))); } catch {}
     try { const r=await queryDB(DB_IDS.pagosColab,"pagoColab",tok);
       if(!r?.error&&Array.isArray(r)) setPagosColab(r.map(p=>({...p,monto:Number(p.monto)||0}))); } catch {}
+    try { const r=await queryDB(DB_IDS.proyectos,"proyecto",tok);
+      if(!r?.error&&Array.isArray(r)) setProyectos(r); } catch {}
 
     setLastSync(new Date());
     setSyncing(false);
@@ -794,7 +798,7 @@ export default function App() {
     const ahorroR=cfg.ingresoMensual>0?pct(Math.max(0,cfg.ingresoMensual-stats.persEgr),cfg.ingresoMensual):null;
     const diasCierre=daysUntil(cfg.cierreBBVA);
     const totalDeudaColab=deudaColab.reduce((s,c)=>s+c.saldo,0);
-    return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
+    return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores} proyectos={proyectos}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <div style={{fontSize:10,color:T.inkDim,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8}}>{new Date().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"}).replace(/^\w/,c=>c.toUpperCase())}</div>
         <div style={{fontFamily:T.disp,fontSize:26,fontWeight:700,color:T.ink,letterSpacing:"-0.02em"}}>Finanzas MeinHaus</div>
@@ -880,7 +884,7 @@ export default function App() {
   }
 
   // ── MOVIMIENTOS ───────────────────────────────────────────
-  if(nav==="movimientos") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
+  if(nav==="movimientos") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores} proyectos={proyectos}/>
     <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
       <div style={{fontFamily:T.disp,fontSize:22,fontWeight:700,color:T.ink}}>Movimientos</div>
       <div style={{fontSize:11,color:T.inkDim,marginTop:3}}>{all.length} registros · Notion</div>
@@ -911,7 +915,7 @@ export default function App() {
       cuotasPorMes[m].cuotas.push(c);
     });
     const meses=Object.values(cuotasPorMes).sort((a,b)=>a.mes.localeCompare(b.mes));
-    return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
+    return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores} proyectos={proyectos}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <div style={{fontFamily:T.disp,fontSize:22,fontWeight:700,color:T.ink}}>Tarjeta</div>
         <div style={{fontSize:11,color:T.inkDim,marginTop:3}}>BBVA Personal · Cuotas y cierre</div>
@@ -974,7 +978,7 @@ export default function App() {
     const pagosDeColab = selectedColab ? pagosColab.filter(p=>p.colaborador===selectedColab.nombre||p.colaborador===selectedColab.desc) : [];
     const saldoColab = honDeColab.reduce((s,h)=>s+Math.max(0,(h.montoPactado||0)-(h.totalAdelantado||0)),0);
 
-    if(colabScreen==="newColab") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
+    if(colabScreen==="newColab") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores} proyectos={proyectos}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <button onClick={()=>setColabScreen("list")} style={{background:"none",border:"none",fontSize:10,color:T.inkDim,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.06em",padding:0,marginBottom:10,display:"block",textTransform:"uppercase"}}>← VOLVER</button>
         <div style={{fontFamily:T.disp,fontSize:20,fontWeight:700,color:T.ink}}>Nuevo colaborador</div>
@@ -990,7 +994,7 @@ export default function App() {
       </div>
     </Shell>);
 
-    if(colabScreen==="newHonorario") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
+    if(colabScreen==="newHonorario") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores} proyectos={proyectos}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <button onClick={()=>setColabScreen("list")} style={{background:"none",border:"none",fontSize:10,color:T.inkDim,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.06em",padding:0,marginBottom:10,display:"block",textTransform:"uppercase"}}>← VOLVER</button>
         <div style={{fontFamily:T.disp,fontSize:20,fontWeight:700,color:T.ink}}>Nuevo honorario</div>
@@ -1011,7 +1015,7 @@ export default function App() {
       </div>
     </Shell>);
 
-    if(colabScreen==="newPago") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
+    if(colabScreen==="newPago") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores} proyectos={proyectos}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <button onClick={()=>setColabScreen(selectedColab?"detail":"list")} style={{background:"none",border:"none",fontSize:10,color:T.inkDim,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.06em",padding:0,marginBottom:10,display:"block",textTransform:"uppercase"}}>← VOLVER</button>
         <div style={{fontFamily:T.disp,fontSize:20,fontWeight:700,color:T.ink}}>Registrar pago</div>
@@ -1036,7 +1040,7 @@ export default function App() {
       </div>
     </Shell>);
 
-    if(colabScreen==="detail"&&selectedColab) return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
+    if(colabScreen==="detail"&&selectedColab) return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores} proyectos={proyectos}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <button onClick={()=>{setColabScreen("list");setSelectedColab(null);}} style={{background:"none",border:"none",fontSize:10,color:T.inkDim,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.06em",padding:0,marginBottom:10,display:"block",textTransform:"uppercase"}}>← EQUIPO</button>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -1082,7 +1086,7 @@ export default function App() {
 
     // ── Equipo list
     const totalDeudaGlobal=deudaColab.reduce((s,c)=>s+c.saldo,0);
-    return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
+    return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores} proyectos={proyectos}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div><div style={{fontFamily:T.disp,fontSize:22,fontWeight:700,color:T.ink}}>Equipo</div>
@@ -1124,7 +1128,7 @@ export default function App() {
   if(nav==="analisis") {
     const spent=stats.persEgr, left=Math.max(0,cfg.ingresoMensual-spent);
     const ahorroR=cfg.ingresoMensual>0?pct(left,cfg.ingresoMensual):null;
-    return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
+    return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores} proyectos={proyectos}/>
       <div style={{padding:"24px 28px 20px",borderBottom:`1px solid ${T.rule}`}}>
         <div style={{fontFamily:T.disp,fontSize:22,fontWeight:700,color:T.ink}}>Análisis</div>
       </div>
@@ -1194,7 +1198,7 @@ export default function App() {
   }
 
   // ── CONSEJERO ─────────────────────────────────────────────
-  if(nav==="consejero") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
+  if(nav==="consejero") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores} proyectos={proyectos}/>
     <div style={{padding:"24px 28px 20px",borderBottom:`1px solid ${T.rule}`}}>
       <div style={{fontFamily:T.disp,fontSize:22,fontWeight:700,color:T.ink}}>Asesor</div>
       <div style={{fontSize:11,color:T.inkDim,marginTop:3}}>Análisis IA · datos reales de Notion</div>
