@@ -87,8 +87,12 @@ exports.handler = async (event) => {
   try {
     if (action === "query") {
       if (!notionToken) return { statusCode:401, headers:CORS, body:JSON.stringify({error:"No Notion token"}) };
-      const d = await notionReq("POST", `/databases/${body.dbId}/query`, notionToken,
-        { sorts:[{timestamp:"created_time",direction:"descending"}], page_size:100 });
+      const queryBody = { sorts:[{timestamp:"created_time",direction:"descending"}], page_size:100 };
+      // Filter activos for colaboradores
+      if (body.type === "colaborador") {
+        queryBody.filter = { property:"Estado", select:{ equals:"Activo" } };
+      }
+      const d = await notionReq("POST", `/databases/${body.dbId}/query`, notionToken, queryBody);
       return { statusCode:200, headers:CORS, body:JSON.stringify((d.results||[]).map(p=>parseProps(p,body.type))) };
     }
 
