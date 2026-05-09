@@ -302,13 +302,13 @@ function SetupScreen({onToken}) {
         ))}
         <div style={{marginTop:20,display:"flex",flexDirection:"column",gap:12}}>
           <div>
-            <label style={lbl}>Token Notion</label>
-            <input style={inpS} placeholder="ntn_..." value={token}
+            <label style={lblStyle}>Token Notion</label>
+            <input style={inpStyle} placeholder="ntn_..." value={token}
               onChange={e=>setToken(e.target.value)} onKeyDown={e=>e.key==="Enter"&&test()}/>
           </div>
           <div>
-            <label style={lbl}>API Key Anthropic <span style={{color:T.inkDim,fontWeight:400}}>(opcional — Asesor y Voz)</span></label>
-            <input style={inpS} placeholder="sk-ant-api03-..." value={apiKey}
+            <label style={lblStyle}>API Key Anthropic <span style={{color:T.inkDim,fontWeight:400}}>(opcional — Asesor y Voz)</span></label>
+            <input style={inpStyle} placeholder="sk-ant-api03-..." value={apiKey}
               onChange={e=>setApiKey(e.target.value)}/>
           </div>
           {err&&<div style={{padding:"8px 10px",background:T.negL,border:`1px solid ${T.neg}`,fontSize:11,color:T.neg,fontFamily:T.mono}}>{err}</div>}
@@ -329,6 +329,147 @@ function SetupScreen({onToken}) {
 // ══════════════════════════════════════════════════════════════
 // MAIN APP
 // ══════════════════════════════════════════════════════════════
+
+// ── Pure UI components (module-level) ──────────────────────
+const Lbl = ({children,size=9,color=T.inkDim,mb=0,mt=0})=>(
+  <div style={{fontSize:size,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",color,marginBottom:mb,marginTop:mt}}>{children}</div>
+);
+const Rule = ({my=0})=>(<div style={{borderTop:`1px solid ${T.rule}`,margin:`${my}px 0`}}/>);
+const Chip = ({label,color=T.inkDim,bg=T.paper})=>(
+  <span style={{fontSize:9,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",padding:"2px 6px",background:bg,color,border:`1px solid ${T.rule}`,display:"inline-block"}}>{label}</span>
+);
+const Btn = ({onClick,children,primary,small,full,disabled,color,danger})=>{
+  const bg=primary?(danger?T.neg:color||T.ink):T.cream;
+  const cl=primary?T.cream:(danger?T.neg:color||T.ink);
+  const bd=primary?(danger?T.neg:color||T.ink):(danger?T.neg:T.rule);
+  return (<button onClick={onClick} disabled={disabled} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:small?"5px 12px":"9px 20px",width:full?"100%":"auto",background:bg,color:cl,border:`1.5px solid ${bd}`,fontSize:11,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",opacity:disabled?0.4:1}}>{children}</button>);
+};
+const EntryRow = ({e,showBucket=false})=>{
+  const isPos=e.sub==="ingreso", isAdj=e.sub==="ajuste";
+  return (
+    <div className={e._pending?"pending":""} style={{display:"flex",alignItems:"flex-start",gap:12,padding:"11px 0",borderBottom:`1px solid ${T.ruleL}`}}>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:14,fontFamily:T.sans,fontWeight:500,color:T.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:4}}>{e.desc}</div>
+        <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+          {showBucket&&<Chip label={{personal:"PERS",compartido:"COMP",mh:"MH"}[e.bucket]||"—"} color={T.accent} bg={T.accentL}/>}
+          {e.cat&&<Chip label={e.cat}/>}
+          {isAdj&&<Chip label="AJUSTE" color={T.pos} bg={T.posL}/>}
+          {isPos&&<Chip label="INGRESO" color={T.pos} bg={T.posL}/>}
+          {e.pago&&<Chip label={e.pago}/>}
+          {e._pending&&<Chip label="GUARDANDO…" color={T.accent} bg={T.accentL}/>}
+          {e.fecha&&<span style={{fontSize:10,fontFamily:T.mono,color:T.inkDim}}>{e.fecha}</span>}
+        </div>
+      </div>
+      <div style={{flexShrink:0,textAlign:"right"}}>
+        <div className="num" style={{fontSize:15,fontWeight:500,color:isPos||isAdj?T.pos:T.ink}}>{isPos?"+":""}{ars(e.monto)}</div>
+        {!e._pending&&e.notionId&&<a href={e.notionId} target="_blank" rel="noreferrer" style={{fontSize:9,color:T.inkDim,textDecoration:"none",fontFamily:T.mono,display:"block",marginTop:3}}>N ↗</a>}
+      </div>
+    </div>
+  );
+};
+const ChartTip = ({active,payload,label})=>{
+  if(!active||!payload?.length) return null;
+  return (<div style={{background:T.cream,border:`1px solid ${T.rule}`,padding:"8px 12px"}}>
+    <Lbl mb={6}>{label}</Lbl>
+    {payload.map(p=>(<div key={p.name} style={{display:"flex",justifyContent:"space-between",gap:16,marginTop:3}}>
+      <span style={{fontSize:10,color:T.inkMid,fontFamily:T.sans}}>{p.name}</span>
+      <span className="num" style={{fontSize:11,color:T.ink}}>{ars(p.value)}</span>
+    </div>))}
+  </div>);
+};
+
+
+// ── Add Modal ─────────────────────────────────────────────
+function AddModal({showAdd,setShowAdd,form,setForm,formErr,setFormErr,handleAdd,saving,listening,voiceText,voiceParsing,startVoice,err,colaboradores}) {
+if(!showAdd) return null;
+  const isCuotas = form.metodo==="Crédito";
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(26,25,23,0.5)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:200,paddingTop:40,overflowY:"auto"}}>
+      <div className="fade" style={{background:T.cream,width:"100%",maxWidth:500,borderTop:`3px solid ${T.accent}`,margin:"0 16px 40px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",borderBottom:`1px solid ${T.rule}`}}>
+          <div style={{fontFamily:T.disp,fontSize:17,fontWeight:700,color:T.ink}}>Nuevo movimiento</div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <button onClick={startVoice} style={{width:32,height:32,background:listening?T.accent:T.paper,color:listening?T.cream:T.inkMid,border:`1px solid ${listening?T.accent:T.rule}`,borderRadius:"50%",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>🎙</button>
+            <button onClick={()=>setShowAdd(false)} style={{background:"none",border:"none",fontSize:20,color:T.inkDim,lineHeight:1}}>×</button>
+          </div>
+        </div>
+        {(listening||voiceParsing||voiceText)&&(
+          <div style={{padding:"10px 20px",background:T.accentL,borderBottom:`1px solid ${T.rule}`,display:"flex",alignItems:"center",gap:8}}>
+            {listening&&<><div style={{width:8,height:8,borderRadius:"50%",background:T.accent}} className="spin"/><span style={{fontSize:12,color:T.accent,fontFamily:T.sans}}>Escuchando…</span></>}
+            {voiceParsing&&<><div style={{width:14,height:14,border:`1.5px solid ${T.rule}`,borderTopColor:T.accent,borderRadius:"50%"}} className="spin"/><span style={{fontSize:12,color:T.inkMid,fontFamily:T.sans}}>Procesando: "{voiceText}"</span></>}
+            {voiceText&&!listening&&!voiceParsing&&<span style={{fontSize:11,color:T.inkMid,fontFamily:T.mono}}>✓ "{voiceText}"</span>}
+          </div>
+        )}
+        <div style={{padding:20,display:"flex",flexDirection:"column",gap:14}}>
+          {/* Bucket */}
+          <div style={{display:"flex",border:`1.5px solid ${T.rule}`}}>
+            {[["personal","Personal"],["compartido","Compartido"],["mh","MeinHaus"]].map(([k,l],i)=>(
+              <button key={k} onClick={()=>setForm(f=>({...f,bucket:k,cat:CATS[k][0]}))} style={{flex:1,padding:"8px 4px",border:"none",borderRight:i<2?`1px solid ${T.rule}`:"none",background:form.bucket===k?T.ink:T.cream,color:form.bucket===k?T.cream:T.inkMid,fontSize:11,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.04em"}}>{l}</button>
+            ))}
+          </div>
+          <div>
+            <label style={lblStyle}>Descripción</label>
+            <input style={{...inpStyle,outline:formErr&&!form.desc.trim()?`2px solid ${T.neg}`:"none"}} placeholder="ej: Materiales ferretería" autoFocus value={form.desc} onChange={e=>setForm(f=>({...f,desc:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&handleAdd()}/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <div>
+              <label style={lblStyle}>Monto total</label>
+              <input style={{...inpStyle,fontFamily:T.mono,outline:formErr&&!(parseFloat(form.monto)>0)?`2px solid ${T.neg}`:"none"}} type="number" placeholder="0" value={form.monto} onChange={e=>setForm(f=>({...f,monto:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&handleAdd()}/>
+            </div>
+            <div>
+              <label style={lblStyle}>Fecha</label>
+              <input style={{...inpStyle,fontFamily:T.mono,fontSize:12}} type="date" value={form.fecha} onChange={e=>setForm(f=>({...f,fecha:e.target.value}))}/>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            {form.bucket==="compartido"&&<div><label style={lblStyle}>Pagó</label><select style={selStyle} value={form.pago} onChange={e=>setForm(f=>({...f,pago:e.target.value}))}><option>Mariano</option><option>Flor</option></select></div>}
+            {form.bucket==="personal"&&<div><label style={lblStyle}>Método</label><select style={selStyle} value={form.metodo} onChange={e=>setForm(f=>({...f,metodo:e.target.value}))}>{METODOS.map(m=><option key={m}>{m}</option>)}</select></div>}
+            {form.bucket==="mh"&&<div><label style={lblStyle}>Tipo</label><select style={selStyle} value={form.mhTipo} onChange={e=>setForm(f=>({...f,mhTipo:e.target.value}))}><option>Egreso</option><option>Ingreso</option></select></div>}
+            <div><label style={lblStyle}>Categoría</label><select style={{...selStyle,fontSize:12}} value={form.cat} onChange={e=>setForm(f=>({...f,cat:e.target.value}))}>{CATS[form.bucket].map(c=><option key={c}>{c}</option>)}</select></div>
+          </div>
+          {/* Cuotas — solo para Crédito en personal */}
+          {form.bucket==="personal"&&form.metodo==="Crédito"&&(
+            <div style={{padding:"12px",background:T.paper,border:`1px solid ${T.rule}`}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                <div>
+                  <label style={lblStyle}>Cuotas</label>
+                  <select style={selStyle} value={form.cuotasN} onChange={e=>setForm(f=>({...f,cuotasN:Number(e.target.value)}))}>
+                    {CUOTAS_OPT.map(n=><option key={n} value={n}>{n===1?"Sin cuotas":n+" cuotas"}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={lblStyle}>Tarjeta</label>
+                  <select style={selStyle} value={form.tarjeta} onChange={e=>setForm(f=>({...f,tarjeta:e.target.value}))}>
+                    <option>BBVA Personal</option><option>Patagonia SAS</option>
+                  </select>
+                </div>
+              </div>
+              {form.cuotasN>1&&(
+                <div style={{marginTop:8,fontSize:11,color:T.accent,fontFamily:T.mono}}>
+                  {form.cuotasN} × {ars(Math.round(parseFloat(form.monto||0)/form.cuotasN))}/mes · Se generan {form.cuotasN} débitos futuros
+                </div>
+              )}
+            </div>
+          )}
+          {formErr&&<div style={{padding:"7px 10px",background:T.negL,border:`1px solid ${T.neg}`,fontSize:11,color:T.neg,fontFamily:T.sans}}>{formErr}</div>}
+          <div style={{display:"flex",gap:10,marginTop:4}}>
+            <Btn onClick={()=>setShowAdd(false)}>Cancelar</Btn>
+            <Btn primary full onClick={handleAdd} disabled={saving}>{saving?"Guardando…":"Guardar →"}</Btn>
+          </div>
+          <div style={{fontSize:9,color:T.inkDim,letterSpacing:"0.06em",textTransform:"uppercase",textAlign:"center"}}>Persiste en Notion · {form.bucket.toUpperCase()}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
+// ── Stable form styles (module-level) ────────────────────────
+const inpStyle = {width:"100%",padding:"9px 10px",border:`1.5px solid ${T.rule}`,fontSize:14,color:T.ink,background:T.cream};
+const selStyle = {width:"100%",padding:"9px 10px",border:`1.5px solid ${T.rule}`,fontSize:14,color:T.ink,background:T.cream};
+const lblStyle = {fontSize:9,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",color:T.inkDim,display:"block",marginBottom:5};
+
 export default function App() {
   const [notionToken, setNotionToken] = useState(getStoredToken);
   const [nav,         setNav]         = useState("home");
@@ -587,56 +728,6 @@ export default function App() {
     return Object.values(map).sort((a,b)=>b.saldo-a.saldo);
   },[honorarios]);
 
-  // ── UI atoms ──────────────────────────────────────────────
-  const Lbl = ({children,size=9,color=T.inkDim,mb=0,mt=0})=>(
-    <div style={{fontSize:size,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",color,marginBottom:mb,marginTop:mt}}>{children}</div>
-  );
-  const Rule = ({my=0})=>(<div style={{borderTop:`1px solid ${T.rule}`,margin:`${my}px 0`}}/>);
-  const Chip = ({label,color=T.inkDim,bg=T.paper})=>(
-    <span style={{fontSize:9,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",padding:"2px 6px",background:bg,color,border:`1px solid ${T.rule}`,display:"inline-block"}}>{label}</span>
-  );
-  const Btn = ({onClick,children,primary,small,full,disabled,color,danger})=>{
-    const bg=primary?(danger?T.neg:color||T.ink):T.cream;
-    const cl=primary?T.cream:(danger?T.neg:color||T.ink);
-    const bd=primary?(danger?T.neg:color||T.ink):(danger?T.neg:T.rule);
-    return (<button onClick={onClick} disabled={disabled} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:small?"5px 12px":"9px 20px",width:full?"100%":"auto",background:bg,color:cl,border:`1.5px solid ${bd}`,fontSize:11,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.05em",textTransform:"uppercase",opacity:disabled?0.4:1}}>{children}</button>);
-  };
-
-  const EntryRow = ({e,showBucket=false})=>{
-    const isPos=e.sub==="ingreso", isAdj=e.sub==="ajuste";
-    return (
-      <div className={e._pending?"pending":""} style={{display:"flex",alignItems:"flex-start",gap:12,padding:"11px 0",borderBottom:`1px solid ${T.ruleL}`}}>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:14,fontFamily:T.sans,fontWeight:500,color:T.ink,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:4}}>{e.desc}</div>
-          <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
-            {showBucket&&<Chip label={{personal:"PERS",compartido:"COMP",mh:"MH"}[e.bucket]||"—"} color={T.accent} bg={T.accentL}/>}
-            {e.cat&&<Chip label={e.cat}/>}
-            {isAdj&&<Chip label="AJUSTE" color={T.pos} bg={T.posL}/>}
-            {isPos&&<Chip label="INGRESO" color={T.pos} bg={T.posL}/>}
-            {e.pago&&<Chip label={e.pago}/>}
-            {e._pending&&<Chip label="GUARDANDO…" color={T.accent} bg={T.accentL}/>}
-            {e.fecha&&<span style={{fontSize:10,fontFamily:T.mono,color:T.inkDim}}>{e.fecha}</span>}
-          </div>
-        </div>
-        <div style={{flexShrink:0,textAlign:"right"}}>
-          <div className="num" style={{fontSize:15,fontWeight:500,color:isPos||isAdj?T.pos:T.ink}}>{isPos?"+":""}{ars(e.monto)}</div>
-          {!e._pending&&e.notionId&&<a href={e.notionId} target="_blank" rel="noreferrer" style={{fontSize:9,color:T.inkDim,textDecoration:"none",fontFamily:T.mono,display:"block",marginTop:3}}>N ↗</a>}
-        </div>
-      </div>
-    );
-  };
-
-  const ChartTip = ({active,payload,label})=>{
-    if(!active||!payload?.length) return null;
-    return (<div style={{background:T.cream,border:`1px solid ${T.rule}`,padding:"8px 12px"}}>
-      <Lbl mb={6}>{label}</Lbl>
-      {payload.map(p=>(<div key={p.name} style={{display:"flex",justifyContent:"space-between",gap:16,marginTop:3}}>
-        <span style={{fontSize:10,color:T.inkMid,fontFamily:T.sans}}>{p.name}</span>
-        <span className="num" style={{fontSize:11,color:T.ink}}>{ars(p.value)}</span>
-      </div>))}
-    </div>);
-  };
-
   // ── Shell ─────────────────────────────────────────────────
   const SIDEBAR_W=180;
   const NAV_ITEMS=[["home","Inicio"],["movimientos","Movimientos"],["tarjeta","Tarjeta"],["equipo","Equipo"],["analisis","Análisis"],["consejero","Asesor"]];
@@ -696,92 +787,6 @@ export default function App() {
 
   const inpS={width:"100%",padding:"9px 10px",border:`1.5px solid ${T.rule}`,fontSize:14,color:T.ink,background:T.cream};
   const selS={...inpS};
-  const lbl={fontSize:9,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",color:T.inkDim,display:"block",marginBottom:5};
-
-  // ── Add Modal ─────────────────────────────────────────────
-  const AddModal=()=>{
-    if(!showAdd) return null;
-    const isCuotas = form.metodo==="Crédito";
-    return (
-      <div style={{position:"fixed",inset:0,background:"rgba(26,25,23,0.5)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:200,paddingTop:40,overflowY:"auto"}}>
-        <div className="fade" style={{background:T.cream,width:"100%",maxWidth:500,borderTop:`3px solid ${T.accent}`,margin:"0 16px 40px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",borderBottom:`1px solid ${T.rule}`}}>
-            <div style={{fontFamily:T.disp,fontSize:17,fontWeight:700,color:T.ink}}>Nuevo movimiento</div>
-            <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              <button onClick={startVoice} style={{width:32,height:32,background:listening?T.accent:T.paper,color:listening?T.cream:T.inkMid,border:`1px solid ${listening?T.accent:T.rule}`,borderRadius:"50%",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>🎙</button>
-              <button onClick={()=>setShowAdd(false)} style={{background:"none",border:"none",fontSize:20,color:T.inkDim,lineHeight:1}}>×</button>
-            </div>
-          </div>
-          {(listening||voiceParsing||voiceText)&&(
-            <div style={{padding:"10px 20px",background:T.accentL,borderBottom:`1px solid ${T.rule}`,display:"flex",alignItems:"center",gap:8}}>
-              {listening&&<><div style={{width:8,height:8,borderRadius:"50%",background:T.accent}} className="spin"/><span style={{fontSize:12,color:T.accent,fontFamily:T.sans}}>Escuchando…</span></>}
-              {voiceParsing&&<><div style={{width:14,height:14,border:`1.5px solid ${T.rule}`,borderTopColor:T.accent,borderRadius:"50%"}} className="spin"/><span style={{fontSize:12,color:T.inkMid,fontFamily:T.sans}}>Procesando: "{voiceText}"</span></>}
-              {voiceText&&!listening&&!voiceParsing&&<span style={{fontSize:11,color:T.inkMid,fontFamily:T.mono}}>✓ "{voiceText}"</span>}
-            </div>
-          )}
-          <div style={{padding:20,display:"flex",flexDirection:"column",gap:14}}>
-            {/* Bucket */}
-            <div style={{display:"flex",border:`1.5px solid ${T.rule}`}}>
-              {[["personal","Personal"],["compartido","Compartido"],["mh","MeinHaus"]].map(([k,l],i)=>(
-                <button key={k} onClick={()=>setForm(f=>({...f,bucket:k,cat:CATS[k][0]}))} style={{flex:1,padding:"8px 4px",border:"none",borderRight:i<2?`1px solid ${T.rule}`:"none",background:form.bucket===k?T.ink:T.cream,color:form.bucket===k?T.cream:T.inkMid,fontSize:11,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.04em"}}>{l}</button>
-              ))}
-            </div>
-            <div>
-              <label style={lbl}>Descripción</label>
-              <input style={{...inpS,outline:formErr&&!form.desc.trim()?`2px solid ${T.neg}`:"none"}} placeholder="ej: Materiales ferretería" autoFocus value={form.desc} onChange={e=>setForm(f=>({...f,desc:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&handleAdd()}/>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <div>
-                <label style={lbl}>Monto total</label>
-                <input style={{...inpS,fontFamily:T.mono,outline:formErr&&!(parseFloat(form.monto)>0)?`2px solid ${T.neg}`:"none"}} type="number" placeholder="0" value={form.monto} onChange={e=>setForm(f=>({...f,monto:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&handleAdd()}/>
-              </div>
-              <div>
-                <label style={lbl}>Fecha</label>
-                <input style={{...inpS,fontFamily:T.mono,fontSize:12}} type="date" value={form.fecha} onChange={e=>setForm(f=>({...f,fecha:e.target.value}))}/>
-              </div>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              {form.bucket==="compartido"&&<div><label style={lbl}>Pagó</label><select style={selS} value={form.pago} onChange={e=>setForm(f=>({...f,pago:e.target.value}))}><option>Mariano</option><option>Flor</option></select></div>}
-              {form.bucket==="personal"&&<div><label style={lbl}>Método</label><select style={selS} value={form.metodo} onChange={e=>setForm(f=>({...f,metodo:e.target.value}))}>{METODOS.map(m=><option key={m}>{m}</option>)}</select></div>}
-              {form.bucket==="mh"&&<div><label style={lbl}>Tipo</label><select style={selS} value={form.mhTipo} onChange={e=>setForm(f=>({...f,mhTipo:e.target.value}))}><option>Egreso</option><option>Ingreso</option></select></div>}
-              <div><label style={lbl}>Categoría</label><select style={{...selS,fontSize:12}} value={form.cat} onChange={e=>setForm(f=>({...f,cat:e.target.value}))}>{CATS[form.bucket].map(c=><option key={c}>{c}</option>)}</select></div>
-            </div>
-            {/* Cuotas — solo para Crédito en personal */}
-            {form.bucket==="personal"&&form.metodo==="Crédito"&&(
-              <div style={{padding:"12px",background:T.paper,border:`1px solid ${T.rule}`}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-                  <div>
-                    <label style={lbl}>Cuotas</label>
-                    <select style={selS} value={form.cuotasN} onChange={e=>setForm(f=>({...f,cuotasN:Number(e.target.value)}))}>
-                      {CUOTAS_OPT.map(n=><option key={n} value={n}>{n===1?"Sin cuotas":n+" cuotas"}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={lbl}>Tarjeta</label>
-                    <select style={selS} value={form.tarjeta} onChange={e=>setForm(f=>({...f,tarjeta:e.target.value}))}>
-                      <option>BBVA Personal</option><option>Patagonia SAS</option>
-                    </select>
-                  </div>
-                </div>
-                {form.cuotasN>1&&(
-                  <div style={{marginTop:8,fontSize:11,color:T.accent,fontFamily:T.mono}}>
-                    {form.cuotasN} × {ars(Math.round(parseFloat(form.monto||0)/form.cuotasN))}/mes · Se generan {form.cuotasN} débitos futuros
-                  </div>
-                )}
-              </div>
-            )}
-            {formErr&&<div style={{padding:"7px 10px",background:T.negL,border:`1px solid ${T.neg}`,fontSize:11,color:T.neg,fontFamily:T.sans}}>{formErr}</div>}
-            <div style={{display:"flex",gap:10,marginTop:4}}>
-              <Btn onClick={()=>setShowAdd(false)}>Cancelar</Btn>
-              <Btn primary full onClick={handleAdd} disabled={saving}>{saving?"Guardando…":"Guardar →"}</Btn>
-            </div>
-            <div style={{fontSize:9,color:T.inkDim,letterSpacing:"0.06em",textTransform:"uppercase",textAlign:"center"}}>Persiste en Notion · {form.bucket.toUpperCase()}</div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // ── Gate ──────────────────────────────────────────────────
   if(!notionToken) return (<><style>{CSS}</style><SetupScreen onToken={t=>{try{localStorage.setItem(NOTION_TOKEN_KEY,t);}catch{}setNotionToken(t);}}/></>);
 
@@ -790,7 +795,7 @@ export default function App() {
     const ahorroR=cfg.ingresoMensual>0?pct(Math.max(0,cfg.ingresoMensual-stats.persEgr),cfg.ingresoMensual):null;
     const diasCierre=daysUntil(cfg.cierreBBVA);
     const totalDeudaColab=deudaColab.reduce((s,c)=>s+c.saldo,0);
-    return (<Shell><AddModal/>
+    return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <div style={{fontSize:10,color:T.inkDim,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",marginBottom:8}}>{new Date().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"}).replace(/^\w/,c=>c.toUpperCase())}</div>
         <div style={{fontFamily:T.disp,fontSize:26,fontWeight:700,color:T.ink,letterSpacing:"-0.02em"}}>Finanzas MeinHaus</div>
@@ -876,7 +881,7 @@ export default function App() {
   }
 
   // ── MOVIMIENTOS ───────────────────────────────────────────
-  if(nav==="movimientos") return (<Shell><AddModal/>
+  if(nav==="movimientos") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
     <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
       <div style={{fontFamily:T.disp,fontSize:22,fontWeight:700,color:T.ink}}>Movimientos</div>
       <div style={{fontSize:11,color:T.inkDim,marginTop:3}}>{all.length} registros · Notion</div>
@@ -907,7 +912,7 @@ export default function App() {
       cuotasPorMes[m].cuotas.push(c);
     });
     const meses=Object.values(cuotasPorMes).sort((a,b)=>a.mes.localeCompare(b.mes));
-    return (<Shell><AddModal/>
+    return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <div style={{fontFamily:T.disp,fontSize:22,fontWeight:700,color:T.ink}}>Tarjeta</div>
         <div style={{fontSize:11,color:T.inkDim,marginTop:3}}>BBVA Personal · Cuotas y cierre</div>
@@ -918,8 +923,8 @@ export default function App() {
         <Lbl mb={12}>Configuración</Lbl>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
           <div>
-            <label style={lbl}>Fecha de cierre BBVA</label>
-            <input style={{...inpS,fontFamily:T.mono,fontSize:12}} type="date" value={cfg.cierreBBVA||""}
+            <label style={lblStyle}>Fecha de cierre BBVA</label>
+            <input style={{...inpStyle,fontFamily:T.mono,fontSize:12}} type="date" value={cfg.cierreBBVA||""}
               onChange={e=>saveCfg({...cfg,cierreBBVA:e.target.value})}/>
             <div style={{fontSize:10,color:T.inkDim,marginTop:4}}>Actualizarlo cada mes</div>
           </div>
@@ -970,69 +975,69 @@ export default function App() {
     const pagosDeColab = selectedColab ? pagosColab.filter(p=>p.colaborador===selectedColab.nombre||p.colaborador===selectedColab.desc) : [];
     const saldoColab = honDeColab.reduce((s,h)=>s+Math.max(0,(h.montoPactado||0)-(h.totalAdelantado||0)),0);
 
-    if(colabScreen==="newColab") return (<Shell><AddModal/>
+    if(colabScreen==="newColab") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <button onClick={()=>setColabScreen("list")} style={{background:"none",border:"none",fontSize:10,color:T.inkDim,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.06em",padding:0,marginBottom:10,display:"block",textTransform:"uppercase"}}>← VOLVER</button>
         <div style={{fontFamily:T.disp,fontSize:20,fontWeight:700,color:T.ink}}>Nuevo colaborador</div>
       </div>
       <div style={{padding:"20px 28px",display:"flex",flexDirection:"column",gap:14}}>
-        <div><label style={lbl}>Nombre</label><input style={inpS} placeholder="Nombre y apellido" value={form.colabNombre} onChange={e=>setForm(f=>({...f,colabNombre:e.target.value}))}/></div>
-        <div><label style={lbl}>Especialidad</label><select style={selS} value={form.colabEspecialidad} onChange={e=>setForm(f=>({...f,colabEspecialidad:e.target.value}))}>
+        <div><label style={lblStyle}>Nombre</label><input style={inpStyle} placeholder="Nombre y apellido" value={form.colabNombre} onChange={e=>setForm(f=>({...f,colabNombre:e.target.value}))}/></div>
+        <div><label style={lblStyle}>Especialidad</label><select style={selStyle} value={form.colabEspecialidad} onChange={e=>setForm(f=>({...f,colabEspecialidad:e.target.value}))}>
           {["Construcción","Diseño","Electricidad","Plomería","Carpintería","Pintura","Administración","Otro"].map(s=><option key={s}>{s}</option>)}
         </select></div>
-        <div><label style={lbl}>Contacto (opcional)</label><input style={inpS} placeholder="Teléfono o email" value={form.colabContacto} onChange={e=>setForm(f=>({...f,colabContacto:e.target.value}))}/></div>
+        <div><label style={lblStyle}>Contacto (opcional)</label><input style={inpStyle} placeholder="Teléfono o email" value={form.colabContacto} onChange={e=>setForm(f=>({...f,colabContacto:e.target.value}))}/></div>
         {formErr&&<div style={{padding:"7px 10px",background:T.negL,border:`1px solid ${T.neg}`,fontSize:11,color:T.neg}}>{formErr}</div>}
         <div style={{display:"flex",gap:10}}><Btn onClick={()=>setColabScreen("list")}>Cancelar</Btn><Btn primary full onClick={handleNewColab} disabled={saving}>{saving?"Guardando…":"Guardar →"}</Btn></div>
       </div>
     </Shell>);
 
-    if(colabScreen==="newHonorario") return (<Shell><AddModal/>
+    if(colabScreen==="newHonorario") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <button onClick={()=>setColabScreen("list")} style={{background:"none",border:"none",fontSize:10,color:T.inkDim,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.06em",padding:0,marginBottom:10,display:"block",textTransform:"uppercase"}}>← VOLVER</button>
         <div style={{fontFamily:T.disp,fontSize:20,fontWeight:700,color:T.ink}}>Nuevo honorario</div>
       </div>
       <div style={{padding:"20px 28px",display:"flex",flexDirection:"column",gap:14}}>
-        <div><label style={lbl}>Colaborador</label><select style={selS} value={form.honColaborador} onChange={e=>setForm(f=>({...f,honColaborador:e.target.value}))}>
+        <div><label style={lblStyle}>Colaborador</label><select style={selStyle} value={form.honColaborador} onChange={e=>setForm(f=>({...f,honColaborador:e.target.value}))}>
           <option value="">Seleccionar…</option>
           {colaboradores.map(c=><option key={c.notionId}>{c.nombre||c.desc}</option>)}
         </select></div>
-        <div><label style={lbl}>Proyecto</label><input style={inpS} placeholder="ej: Casa Bariloche" value={form.honProyecto} onChange={e=>setForm(f=>({...f,honProyecto:e.target.value}))}/></div>
+        <div><label style={lblStyle}>Proyecto</label><input style={inpStyle} placeholder="ej: Casa Bariloche" value={form.honProyecto} onChange={e=>setForm(f=>({...f,honProyecto:e.target.value}))}/></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <div><label style={lbl}>Monto pactado</label><input style={{...inpS,fontFamily:T.mono}} type="number" placeholder="0" value={form.honMonto} onChange={e=>setForm(f=>({...f,honMonto:e.target.value}))}/></div>
-          <div><label style={lbl}>Fecha inicio</label><input style={{...inpS,fontFamily:T.mono,fontSize:12}} type="date" value={form.honFechaInicio} onChange={e=>setForm(f=>({...f,honFechaInicio:e.target.value}))}/></div>
+          <div><label style={lblStyle}>Monto pactado</label><input style={{...inpStyle,fontFamily:T.mono}} type="number" placeholder="0" value={form.honMonto} onChange={e=>setForm(f=>({...f,honMonto:e.target.value}))}/></div>
+          <div><label style={lblStyle}>Fecha inicio</label><input style={{...inpStyle,fontFamily:T.mono,fontSize:12}} type="date" value={form.honFechaInicio} onChange={e=>setForm(f=>({...f,honFechaInicio:e.target.value}))}/></div>
         </div>
-        <div><label style={lbl}>Notas</label><input style={inpS} placeholder="Descripción del trabajo" value={form.honNotas} onChange={e=>setForm(f=>({...f,honNotas:e.target.value}))}/></div>
+        <div><label style={lblStyle}>Notas</label><input style={inpStyle} placeholder="Descripción del trabajo" value={form.honNotas} onChange={e=>setForm(f=>({...f,honNotas:e.target.value}))}/></div>
         {formErr&&<div style={{padding:"7px 10px",background:T.negL,border:`1px solid ${T.neg}`,fontSize:11,color:T.neg}}>{formErr}</div>}
         <div style={{display:"flex",gap:10}}><Btn onClick={()=>setColabScreen("list")}>Cancelar</Btn><Btn primary full onClick={handleNewHonorario} disabled={saving}>{saving?"Guardando…":"Guardar →"}</Btn></div>
       </div>
     </Shell>);
 
-    if(colabScreen==="newPago") return (<Shell><AddModal/>
+    if(colabScreen==="newPago") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <button onClick={()=>setColabScreen(selectedColab?"detail":"list")} style={{background:"none",border:"none",fontSize:10,color:T.inkDim,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.06em",padding:0,marginBottom:10,display:"block",textTransform:"uppercase"}}>← VOLVER</button>
         <div style={{fontFamily:T.disp,fontSize:20,fontWeight:700,color:T.ink}}>Registrar pago</div>
       </div>
       <div style={{padding:"20px 28px",display:"flex",flexDirection:"column",gap:14}}>
-        <div><label style={lbl}>Colaborador</label><select style={selS} value={form.pagoColaborador} onChange={e=>setForm(f=>({...f,pagoColaborador:e.target.value}))}>
+        <div><label style={lblStyle}>Colaborador</label><select style={selStyle} value={form.pagoColaborador} onChange={e=>setForm(f=>({...f,pagoColaborador:e.target.value}))}>
           <option value="">Seleccionar…</option>
           {colaboradores.map(c=><option key={c.notionId}>{c.nombre||c.desc}</option>)}
         </select></div>
-        <div><label style={lbl}>Proyecto</label><input style={inpS} placeholder="ej: Casa Bariloche" value={form.pagoProyecto} onChange={e=>setForm(f=>({...f,pagoProyecto:e.target.value}))}/></div>
+        <div><label style={lblStyle}>Proyecto</label><input style={inpStyle} placeholder="ej: Casa Bariloche" value={form.pagoProyecto} onChange={e=>setForm(f=>({...f,pagoProyecto:e.target.value}))}/></div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <div><label style={lbl}>Monto</label><input style={{...inpS,fontFamily:T.mono}} type="number" placeholder="0" value={form.pagoMonto} onChange={e=>setForm(f=>({...f,pagoMonto:e.target.value}))}/></div>
-          <div><label style={lbl}>Fecha</label><input style={{...inpS,fontFamily:T.mono,fontSize:12}} type="date" value={form.pagoFecha} onChange={e=>setForm(f=>({...f,pagoFecha:e.target.value}))}/></div>
+          <div><label style={lblStyle}>Monto</label><input style={{...inpStyle,fontFamily:T.mono}} type="number" placeholder="0" value={form.pagoMonto} onChange={e=>setForm(f=>({...f,pagoMonto:e.target.value}))}/></div>
+          <div><label style={lblStyle}>Fecha</label><input style={{...inpStyle,fontFamily:T.mono,fontSize:12}} type="date" value={form.pagoFecha} onChange={e=>setForm(f=>({...f,pagoFecha:e.target.value}))}/></div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <div><label style={lbl}>Tipo</label><select style={selS} value={form.pagoTipo} onChange={e=>setForm(f=>({...f,pagoTipo:e.target.value}))}><option>Adelanto</option><option>Pago final</option><option>Ajuste</option></select></div>
-          <div><label style={lbl}>Método</label><select style={selS} value={form.pagoMetodo} onChange={e=>setForm(f=>({...f,pagoMetodo:e.target.value}))}><option>Transferencia</option><option>Efectivo</option><option>Otro</option></select></div>
+          <div><label style={lblStyle}>Tipo</label><select style={selStyle} value={form.pagoTipo} onChange={e=>setForm(f=>({...f,pagoTipo:e.target.value}))}><option>Adelanto</option><option>Pago final</option><option>Ajuste</option></select></div>
+          <div><label style={lblStyle}>Método</label><select style={selStyle} value={form.pagoMetodo} onChange={e=>setForm(f=>({...f,pagoMetodo:e.target.value}))}><option>Transferencia</option><option>Efectivo</option><option>Otro</option></select></div>
         </div>
-        <div><label style={lbl}>Notas</label><input style={inpS} placeholder="Opcional" value={form.pagoNotas} onChange={e=>setForm(f=>({...f,pagoNotas:e.target.value}))}/></div>
+        <div><label style={lblStyle}>Notas</label><input style={inpStyle} placeholder="Opcional" value={form.pagoNotas} onChange={e=>setForm(f=>({...f,pagoNotas:e.target.value}))}/></div>
         {formErr&&<div style={{padding:"7px 10px",background:T.negL,border:`1px solid ${T.neg}`,fontSize:11,color:T.neg}}>{formErr}</div>}
         <div style={{display:"flex",gap:10}}><Btn onClick={()=>setColabScreen(selectedColab?"detail":"list")}>Cancelar</Btn><Btn primary full onClick={handleNewPagoColab} disabled={saving}>{saving?"Guardando…":"Guardar →"}</Btn></div>
       </div>
     </Shell>);
 
-    if(colabScreen==="detail"&&selectedColab) return (<Shell><AddModal/>
+    if(colabScreen==="detail"&&selectedColab) return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <button onClick={()=>{setColabScreen("list");setSelectedColab(null);}} style={{background:"none",border:"none",fontSize:10,color:T.inkDim,fontFamily:T.sans,fontWeight:600,letterSpacing:"0.06em",padding:0,marginBottom:10,display:"block",textTransform:"uppercase"}}>← EQUIPO</button>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -1078,7 +1083,7 @@ export default function App() {
 
     // ── Equipo list
     const totalDeudaGlobal=deudaColab.reduce((s,c)=>s+c.saldo,0);
-    return (<Shell><AddModal/>
+    return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
       <div style={{padding:"24px 28px 16px",borderBottom:`1px solid ${T.rule}`}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div><div style={{fontFamily:T.disp,fontSize:22,fontWeight:700,color:T.ink}}>Equipo</div>
@@ -1120,7 +1125,7 @@ export default function App() {
   if(nav==="analisis") {
     const spent=stats.persEgr, left=Math.max(0,cfg.ingresoMensual-spent);
     const ahorroR=cfg.ingresoMensual>0?pct(left,cfg.ingresoMensual):null;
-    return (<Shell><AddModal/>
+    return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
       <div style={{padding:"24px 28px 20px",borderBottom:`1px solid ${T.rule}`}}>
         <div style={{fontFamily:T.disp,fontSize:22,fontWeight:700,color:T.ink}}>Análisis</div>
       </div>
@@ -1129,8 +1134,8 @@ export default function App() {
         <div style={{padding:16,background:T.paper,border:`1px solid ${T.rule}`}}>
           <Lbl mb={12}>Parámetros</Lbl>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <div><label style={lbl}>Ingreso mensual</label><input style={{...inpS,fontFamily:T.mono}} type="number" placeholder="0" value={cfg.ingresoMensual||""} onChange={e=>saveCfg({...cfg,ingresoMensual:Number(e.target.value)||0})}/></div>
-            <div><label style={lbl}>Meta ahorro %</label><input style={{...inpS,fontFamily:T.mono}} type="number" placeholder="20" value={cfg.metaAhorro||""} onChange={e=>saveCfg({...cfg,metaAhorro:Number(e.target.value)||20})}/></div>
+            <div><label style={lblStyle}>Ingreso mensual</label><input style={{...inpStyle,fontFamily:T.mono}} type="number" placeholder="0" value={cfg.ingresoMensual||""} onChange={e=>saveCfg({...cfg,ingresoMensual:Number(e.target.value)||0})}/></div>
+            <div><label style={lblStyle}>Meta ahorro %</label><input style={{...inpStyle,fontFamily:T.mono}} type="number" placeholder="20" value={cfg.metaAhorro||""} onChange={e=>saveCfg({...cfg,metaAhorro:Number(e.target.value)||20})}/></div>
           </div>
           {cfg.ingresoMensual>0&&<div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${T.rule}`,display:"flex",gap:0,border:`1px solid ${T.rule}`}}>
             {[["Gastado",ars(spent),spent>cfg.ingresoMensual?T.neg:T.ink],["Disponible",ars(left),T.pos],["Ahorro",`${ahorroR}%`,ahorroR>=cfg.metaAhorro?T.pos:T.neg]].map(([l,v,c],i)=>(
@@ -1190,7 +1195,7 @@ export default function App() {
   }
 
   // ── CONSEJERO ─────────────────────────────────────────────
-  if(nav==="consejero") return (<Shell><AddModal/>
+  if(nav==="consejero") return (<Shell><AddModal showAdd={showAdd} setShowAdd={setShowAdd} form={form} setForm={setForm} formErr={formErr} setFormErr={setFormErr} handleAdd={handleAdd} saving={saving} listening={listening} voiceText={voiceText} voiceParsing={voiceParsing} startVoice={startVoice} err={err} colaboradores={colaboradores}/>
     <div style={{padding:"24px 28px 20px",borderBottom:`1px solid ${T.rule}`}}>
       <div style={{fontFamily:T.disp,fontSize:22,fontWeight:700,color:T.ink}}>Asesor</div>
       <div style={{fontSize:11,color:T.inkDim,marginTop:3}}>Análisis IA · datos reales de Notion</div>
